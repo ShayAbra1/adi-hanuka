@@ -1,0 +1,162 @@
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+const initialVocabulary = [
+  { english: 'Dreidel', hebrew: 'סביבון' },
+  { english: 'Hanukkah', hebrew: 'חנוכה' },
+  { english: 'Menorah', hebrew: 'מנורה', alternativeAnswers: ['חנוכיה'] },
+  { english: 'Doughnuts', hebrew: 'סופגניות' },
+  { english: 'Flour', hebrew: 'קמח' },
+  { english: 'Sugar', hebrew: 'סוכר' },
+  { english: 'Oil', hebrew: 'שמן' },
+  { english: 'Jam', hebrew: 'ריבה' },
+  { english: 'Fry', hebrew: 'לטגן' },
+  { english: 'Pan', hebrew: 'מחבת' }
+];
+
+const EnglishLearningApp = () => {
+  const [vocabulary, setVocabulary] = useState([...initialVocabulary]);
+  const [usedWords, setUsedWords] = useState([]);
+  const [currentWord, setCurrentWord] = useState(null);
+  const [userAnswer, setUserAnswer] = useState('');
+  const [score, setScore] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [feedback, setFeedback] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const [isReadyForNextWord, setIsReadyForNextWord] = useState(false);
+
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) {
+      setSpeechSupported(false);
+    }
+  }, []);
+
+  const selectRandomWord = () => {
+    if (vocabulary.length === 0) {
+      setVocabulary([...initialVocabulary]);
+      setUsedWords([]);
+    }
+
+    const availableWords = vocabulary.filter(
+      word => !usedWords.includes(word.english)
+    );
+
+    if (availableWords.length > 0) {
+      const randomWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+      setCurrentWord(randomWord);
+      setUserAnswer('');
+      setFeedback('');
+      setIsReadyForNextWord(false);
+    }
+  };
+
+  const playWordPronunciation = () => {
+    if (!speechSupported) return;
+
+    if (isReadyForNextWord) {
+      selectRandomWord();
+    } else if (currentWord) {
+      const utterance = new SpeechSynthesisUtterance(currentWord.english);
+      utterance.lang = 'en-US';
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const checkAnswer = () => {
+    setTotalQuestions(total => total + 1);
+    
+    const isCorrect = 
+      userAnswer.trim() === currentWord.hebrew || 
+      (currentWord.alternativeAnswers && 
+       currentWord.alternativeAnswers.includes(userAnswer.trim()));
+
+    if (isCorrect) {
+      setScore(prevScore => prevScore + 1);
+      setUsedWords(prev => [...prev, currentWord.english]);
+      setVocabulary(prev => 
+        prev.filter(word => word.english !== currentWord.english)
+      );
+
+      const allValidAnswers = [currentWord.hebrew, ...(currentWord.alternativeAnswers || [])];
+      setFeedback(`כל הכבוד! תשובה נכונה 👏\nהמילה באנגלית: ${currentWord.english}\nתשובות אפשריות: ${allValidAnswers.join(', ')}`);
+      setIsReadyForNextWord(true);
+    } else {
+      const allValidAnswers = [currentWord.hebrew, ...(currentWord.alternativeAnswers || [])];
+      setFeedback(`אופס! התשובות האפשריות הן: ${allValidAnswers.join(', ')}\nהמילה באנגלית: ${currentWord.english}`);
+      setIsReadyForNextWord(false);
+    }
+  };
+
+  useEffect(() => {
+    selectRandomWord();
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 p-4">
+      <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-md">
+        <h1 className="text-2xl font-bold text-center mb-4">לימוד אנגלית - חנוכה</h1>
+        
+        {!speechSupported && (
+          <p className="text-red-500 text-center mb-4">
+            דפדפן זה אינו תומך בהקראת טקסט
+          </p>
+        )}
+
+        {currentWord && (
+          <>
+            <div className="flex justify-center mb-4">
+              <Button 
+                onClick={playWordPronunciation} 
+                disabled={!speechSupported}
+                className={`
+                  ${isReadyForNextWord 
+                    ? 'bg-blue-500 hover:bg-blue-600' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                  } 
+                  text-white disabled:opacity-50
+                `}
+              >
+                {isReadyForNextWord ? 'לחץ למילה הבאה' : 'האזן למילה'}
+              </Button>
+            </div>
+
+            <Input 
+              placeholder="הקלד את התרגום בעברית"
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              className="mb-4 text-center"
+              disabled={isReadyForNextWord}
+            />
+
+            <Button 
+              onClick={checkAnswer} 
+              disabled={isReadyForNextWord}
+              className="w-full bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
+            >
+              בדוק תשובה
+            </Button>
+
+            {feedback && (
+              <div className={`mt-4 text-center p-2 rounded whitespace-pre-line ${
+                feedback.includes('כל הכבוד') ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                {feedback}
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="mt-4 text-center">
+          <p>ניקוד: {score} / {totalQuestions}</p>
+          <p>מילים שנותרו: {vocabulary.length}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default EnglishLearningApp;
+
+
+
